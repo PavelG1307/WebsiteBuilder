@@ -1,38 +1,67 @@
 // const fs = require("fs");
-const uuid = require("uuid");
+
 const { mkdir, cp, readFile, writeFile } = require('node:fs/promises')
+const { getHashId } = require('../utils')
 
 const controller = {
   create: async (req, res) => {
-    const { type, title, phones, about, text2 } = req.body;
+    const { type, title, phones, about, text2, address } = req.body;
     const { logo, image } = req.files;
+    const data = { type, title, phones, about, logo, image, address }
+    const templates = require('../templates/data.json');
     const verify = async (data) => {
+      if (!(type in templates)) {
+        return false
+      }
+      // const keys = Object.keys(data)
+      // for (const i in keys) {
+      //   if (!data[keys[i]]) {
+      //     return false
+      //   }
+      // }
       return true;
     };
-    if (!verify({ type, title, phones, about, logo, image })) {
-      res.json({ success: false });
+    const getTemplate = (data, i) => {
+      const count = Object.keys(templates[type]).length
+      if (i>=count) {
+        return null
+      }
+      const number = Math.floor(Math.random() * count)
+      const keys = Object.keys(data)
+      const fields = templates[type][number].fields
+      const optionalFields = templates[type][number].optionalFields
+      if (keys.length === fields.length)
+      for (const i in keys) {
+        if (!(keys[i] in fields)) {
+          return getTemplate(data, i ? 1 : i++)
+        }
+      }
+      return { dir: `./templates/${type}/${number}`, fields: fields.push(optionalFields) }
+    }
+    data['phone'] = JSON.parse(phones).join(' <br> ')
+    delete data.phones
+    const template = getTemplate(data)
+    if (!(await verify(data)) || !template) {
+      res.status(400).json({ success: false,  message: 'Недостаточно данных'});
       return;
     }
-    
-    const phonesStr = JSON.parse(phones).join(' <br> ')
-    const dir = `./static/${uuid.v4()}/`;
+    const hashId = getHashId()
+    const dir = `./static/${hashId}/`;
     await mkdir(dir)
-    const numberTemplates = 1;
-    const template = `./templates/${type}/${numberTemplates}`;
-    await cp(template, dir, { recursive: true});
-    req.files.logo.mv(dir + "assets/logo.png");
-    req.files.image.mv(dir + "assets/image.png");
+    await cp(template.dir, dir, { recursive: true});
+    for (const i in Object.keys(req.files)) {
+      const filename = Object.keys(req.files)[i]
+      req.files.logo.mv(dir + "assets/logo.png");
+    }
 
     const pageData = await readFile(dir + 'index.html')
     let page = pageData.toString()
-    page = page.replace('$title$', title)
-      .replaceAll('$logo$', 'assets/logo.png')
-      .replace('$image$', 'assets/image.png')
-      .replace('$about$', about)
-      .replace('$phone$', phonesStr)
-      .replace('$footer$', text2 || '')
+    for (const i in template.fields) {
+      const field = template.fields[i]
+      page = page.replace(`$${field}$`, data[field] || '')
+    }
     await writeFile(dir + 'index.html', page)
-    res.json({ url: 'http://' + req.hostname + ':8080' + dir.slice(1)});
+    res.json({ url: 'http://' + hashId + '.' + req.hostname.split('.')[1] + ':8080/'});
   },
 };
 
