@@ -1,0 +1,28 @@
+{
+    "businessСard": {
+        "0": {
+            "fields": [
+                "about",
+                "logo",
+                "image",
+                "phone",
+                "title"
+            ],
+            "optionalFields": [
+                "text2"
+            ],
+            "feedback": false
+        },
+        "1": {
+            "fields": [
+                "about",
+                "logo",
+                "image",
+                "phone",
+                "address",
+                "title"
+            ],
+            "feedback": true
+        }
+    }
+}
